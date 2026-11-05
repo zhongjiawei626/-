@@ -19,5 +19,5 @@ window.localReportExtract=async ({text,image})=>{
   }
   const fullText=lines.map(x=>typeof x==='string'?x:x.text).join('\n');
   const date=fullText.match(/(?:报告时间|报告日期|采样时间|检验日期)[：:\s]*(20\d{2})[-/.年](\d{1,2})[-/.月](\d{1,2})/);
-  return {date:date?`${date[1]}-${date[2].padStart(2,'0')}-${date[3].padStart(2,'0')}`:'',hospital:fullText.match(/[^\s\n]{2,25}医院/)?.[0]||'',records:parseReportLines(lines),text:fullText};
+  return {date:date?`${date[1]}-${date[2].padStart(2,'0')}-${date[3].padStart(2,'0')}`:'',hospital:fullText.match(/[^\s\n]{2,25}医院/)?.[0]||'',records:parseReportLines(lines,fullText.match(/(?:标本类型|标本种类|样本类型|标本)[：:\s]*(尿液|尿|血清|血浆|血液|全血)/)?.[1]||''),text:fullText};
 };
