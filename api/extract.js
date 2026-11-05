@@ -44,7 +44,7 @@ module.exports = async function handler(req, res) {
     });
     const payload = await response.json();
     if (!response.ok) {
-      console.error("AI Gateway extraction failed", response.status, payload?.error?.code || "gateway_error");
+      console.error("AI Gateway extraction failed", response.status, payload?.error?.code || "gateway_error", String(payload?.error?.message || "").slice(0, 240));
       return res.status(response.status >= 500 ? 502 : response.status).json({ error: "extraction_failed" });
     }
     const raw = payload.choices?.[0]?.message?.content;
