@@ -13,7 +13,9 @@ module.exports = async function handler(req, res) {
   const timestamps = (recentCalls.get(ip) || []).filter(time => now - time < 60 * 60 * 1000);
   if (timestamps.length >= 30) return res.status(429).json({ error: "rate_limited" });
   timestamps.push(now); recentCalls.set(ip, timestamps);
-  const token = process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
+  // In deployed Vercel Functions, OIDC is supplied per request as a header;
+  // VERCEL_OIDC_TOKEN is only present during builds/local development.
+  const token = req.headers["x-vercel-oidc-token"] || process.env.VERCEL_OIDC_TOKEN || process.env.AI_GATEWAY_API_KEY;
   if (!token) return res.status(503).json({ error: "gateway_auth_not_configured" });
 
   const { text, image, fileName } = req.body || {};
