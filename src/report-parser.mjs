@@ -19,7 +19,7 @@ export function groupOcrItems(items) {
   return rows.sort((a,b)=>a.y-b.y).map(r=>({text:r.cells.sort((a,b)=>a.x-b.x).map(c=>c.text).join('  '),cells:r.cells,score:Math.min(...r.cells.map(c=>c.score??0))}));
 }
 
-export function parseReportLines(lines) {
+export function parseReportLines(lines, specimen = "") {
   const records = [];
   const headers=lines.map(x=>typeof x==='string'?x:x.text).filter(x=>/结果/.test(x)&&/参考/.test(x));
   const resultFirst=headers.some(x=>x.indexOf('结果')<x.indexOf('参考'));
@@ -31,7 +31,8 @@ export function parseReportLines(lines) {
     const cleaned=line.replace(/[，,]/g,'.').replace(/[|｜]/g,' ').trim().replace(/^[A-Z][A-Z0-9%-]*(?:-[A-Z]+)?\s+/,'');
     const matches=aliases.map(([alias,metric])=>({alias,metric,index:norm(cleaned).indexOf(norm(alias))})).filter(x=>x.index>=0).sort((a,b)=>a.index-b.index||b.alias.length-a.alias.length);
     if (!matches.length) continue;
-    const selected=matches[0];
+    const selected={...matches[0]};
+    if(selected.alias==='肌酐')selected.metric=/尿/.test(specimen)?'尿肌酐':/血/.test(specimen)?'血清肌酐':'肌酐（标本未明）';
     // Find the exact label in the original line, allowing OCR spaces within it.
     const escaped=[...selected.alias].map(c=>c.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')).join('\\s*');
     const match=cleaned.match(new RegExp(escaped,'i'));
@@ -55,7 +56,8 @@ export function parseReportLines(lines) {
     const bounded=!valueMatch[1];
     const dimensionless=/^(尿比重|尿酸碱度|INR)$/.test(selected.metric);
     const hasSeparator=!rest || /^[\s%↑↓HL]/.test(tail.slice(valueMatch[0].length)) || !!unitMatch;
-    const validated=resultFirst&&bounded&&hasSeparator&&(!!unit||dimensionless)&&score>=.97;
+    const compatible=selected.metric!=='肌酐（标本未明）'&&(selected.metric!=='血清肌酐'||/^(?:[μµu]mol\/L|mg\/dL)$/i.test(unit));
+    const validated=compatible&&resultFirst&&bounded&&hasSeparator&&(!!unit||dimensionless)&&score>=.97;
     records.push({label:selected.alias,metric:selected.metric,value,unit,referenceRange:range,evidence:line,confidence:score,validated});
   }
   return records.filter((r,i,a)=>a.findIndex(x=>x.metric===r.metric&&x.value===r.value&&x.unit===r.unit)===i);
