@@ -1,18 +1,9 @@
 import { PaddleOCR } from '@paddleocr/paddleocr-js';
 import { groupOcrItems, parseReportLines } from './report-parser.mjs';
 let enginePromise;
-async function cachedFetch(input, init) {
-  if (!('caches' in globalThis)) return fetch(input,init);
-  const cache=await caches.open('health-ocr-models-v1');
-  const found=await cache.match(input);
-  if(found)return found;
-  const response=await fetch(input,init);
-  if(response.ok)await cache.put(input,response.clone());
-  return response;
-}
 async function engine() {
   if(!enginePromise) enginePromise=PaddleOCR.create({
-    lang:'ch',ocrVersion:'PP-OCRv6',fetch:cachedFetch,
+    lang:'ch',ocrVersion:'PP-OCRv6',worker:{createWorker:()=>new Worker('/assets/paddle-worker.js',{type:'module'})},
     ortOptions:{backend:'wasm',wasmPaths:'/assets/',numThreads:1},
   }).catch(err=>{enginePromise=null;throw err;});
   return enginePromise;
