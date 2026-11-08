@@ -13,6 +13,21 @@ for kind,source,shape in [('det',sys.argv[1],[1,3,960,960]),('rec',sys.argv[2],[
     model,valid=simplify(onnx.load(original),overwrite_input_shapes={'x':shape})
     if not valid:raise RuntimeError('Simplification validation failed: '+kind)
     # These float32 operators use the same schemas at opset 11; check numerically.
+    # Normalize Paddle's SAME_UPPER padding to explicit ONNX pads. The
+    # mobile converter can differ from ORT in handling automatic padding.
+    inferred=onnx.shape_inference.infer_shapes(model)
+    dims={v.name:[d.dim_value for d in v.type.tensor_type.shape.dim] for v in list(inferred.graph.input)+list(inferred.graph.value_info)}
+    for node in model.graph.node:
+        attrs={a.name:onnx.helper.get_attribute_value(a) for a in node.attribute}
+        auto=attrs.get('auto_pad',b'NOTSET')
+        if auto not in [b'SAME_UPPER',b'SAME_LOWER']:continue
+        spatial=dims[node.input[0]][-2:];kernel=attrs['kernel_shape'];stride=attrs.get('strides',[1,1]);dilation=attrs.get('dilations',[1,1]);starts=[];ends=[]
+        for length,k,st,di in zip(spatial,kernel,stride,dilation):
+            total=max(0,((length+st-1)//st-1)*st+(k-1)*di+1-length)
+            start=total//2 if auto==b'SAME_UPPER' else (total+1)//2
+            starts.append(start);ends.append(total-start)
+        keep=[a for a in node.attribute if a.name not in ['auto_pad','pads']]
+        del node.attribute[:];node.attribute.extend(keep+[onnx.helper.make_attribute('pads',starts+ends)])
     model.ir_version=6;model.opset_import[0].version=11
     onnx.checker.check_model(model);onnx.save(model,output/'inference.onnx')
     opts=rt.SessionOptions();opts.intra_op_num_threads=2

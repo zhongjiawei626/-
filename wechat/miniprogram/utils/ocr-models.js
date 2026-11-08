@@ -6,9 +6,9 @@ module.exports={
       960,
       960
     ],
-    "size": 1753256,
-    "md5": "7efc3a73b79caa2af67ba252ce251b3e",
-    "sha256": "4bcd340bec607b3445bff9a1043160e478a83db21aa1ab8cd8220c9d8d1490a2",
+    "size": 1753232,
+    "md5": "4624094b9d22f315b98dc545afb311fc",
+    "sha256": "613504781c2e8cca6d8cfb79cb09293ae6a91a4fef2a751853d2703e509decba",
     "chunks": [
       {
         "name": "ocr-det-0",
@@ -18,7 +18,7 @@ module.exports={
       {
         "name": "ocr-det-1",
         "path": "ocr-det-1/weights.onnx",
-        "size": 253256
+        "size": 253232
       }
     ]
   },

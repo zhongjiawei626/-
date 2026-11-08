@@ -56,3 +56,5 @@ node wechat/tests/native-models.cjs
 兼容转换依赖 `onnx`、`onnxsim`、`onnxruntime`、`numpy`。检测保持等比缩放并补白到 960×960；识别固定 48×640。原件不参与模型转换。
 
 模型转换失败时会自动使用固定公开测试张量检查模型 MD5、基础卷积、零维/一维标量、Erf、HardSigmoid、空 ROI 缩放、旧式上采样、均值归约和反卷积。诊断不读取报告内容。用 `python build-wechat-probes.py` 重建探针；电脑端 9 项已通过，手机结果仍需实测。
+
+补充兼容处理：将 SAME_UPPER / SAME_LOWER 自动补边按固定输入计算为显式 pads。新增自动/显式补边、深度卷积、通道门控和折叠 GELU 组合探针，共 21 项；电脑全部通过，前 9 项已由用户在手机确认通过。新版诊断只汇总失败项，状态文字可长按选择。
