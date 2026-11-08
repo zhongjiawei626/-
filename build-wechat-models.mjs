@@ -10,7 +10,7 @@ for(const kind of ['det','rec']){
   await fs.writeFile(path.join(folder,'stub.js'),'Page({})\n');await fs.writeFile(path.join(folder,'stub.json'),'{}\n');await fs.writeFile(path.join(folder,'stub.wxml'),'<view/>\n');await fs.writeFile(path.join(folder,'ready.js'),'module.exports='+JSON.stringify(part.toString('base64'))+';\n');
   packages.push({name,root:name,pages:['stub']});chunks.push({name,path:`${name}/weights.onnx`,size:part.length});
  }
- models[kind]={size:bytes.length,sha256:crypto.createHash('sha256').update(bytes).digest('hex'),chunks};
+ models[kind]={shape:kind==='det'?[1,3,960,960]:[1,3,48,640],size:bytes.length,md5:crypto.createHash('md5').update(bytes).digest('hex'),sha256:crypto.createHash('sha256').update(bytes).digest('hex'),chunks};
  if(kind==='rec'){
   const config=yaml.load(await fs.readFile(path.join(dir,'inference.yml'),'utf8'));const chars=['',...config.PostProcess.character_dict,' '];
   await fs.writeFile(path.join(root,'utils/ocr-characters.js'),'module.exports='+JSON.stringify(chars)+';\n');models.classes=chars.length;

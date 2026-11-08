@@ -1,7 +1,14 @@
 module.exports={
   "det": {
-    "size": 1780590,
-    "sha256": "193bab7a04fca699a6c82e6abb5b81bdb28177f0abd4062552b04908dafb19f8",
+    "shape": [
+      1,
+      3,
+      960,
+      960
+    ],
+    "size": 1753256,
+    "md5": "7efc3a73b79caa2af67ba252ce251b3e",
+    "sha256": "4bcd340bec607b3445bff9a1043160e478a83db21aa1ab8cd8220c9d8d1490a2",
     "chunks": [
       {
         "name": "ocr-det-0",
@@ -11,13 +18,20 @@ module.exports={
       {
         "name": "ocr-det-1",
         "path": "ocr-det-1/weights.onnx",
-        "size": 280590
+        "size": 253256
       }
     ]
   },
   "rec": {
-    "size": 4462639,
-    "sha256": "9ef676d6ed3c88256a2d92c640c44f25b0c40947e111b14b8be8f594091563e6",
+    "shape": [
+      1,
+      3,
+      48,
+      640
+    ],
+    "size": 4435873,
+    "md5": "3987ba7537ceb1642979ce34e10a4755",
+    "sha256": "e2f233eb947bb7d51270bd6f4167915fe6716faca6e569f356fcbc9632c0e7bf",
     "chunks": [
       {
         "name": "ocr-rec-0",
@@ -32,7 +46,7 @@ module.exports={
       {
         "name": "ocr-rec-2",
         "path": "ocr-rec-2/weights.onnx",
-        "size": 1462639
+        "size": 1435873
       }
     ]
   },

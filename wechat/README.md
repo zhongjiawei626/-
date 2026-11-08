@@ -43,11 +43,16 @@ OCR 适配依据：https://github.com/wechat-miniprogram/miniprogram-demo/tree/m
 - https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_tiny_det_onnx_infer.tar
 - https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_tiny_rec_onnx_infer.tar
 
-解压这两个模型后，在仓库根目录运行：
+原始检测模型为 IR 10 / opset 14，已实测微信转换失败。先将模型简化为固定输入、IR 6 / opset 11，并验证转换前后输出差异，再打包。解压原始模型后，在仓库根目录运行：
 
 ```
-node build-wechat-models.mjs DET_EXTRACTED_DIRECTORY REC_EXTRACTED_DIRECTORY
+python prepare-wechat-models.py DET_EXTRACTED_DIRECTORY REC_EXTRACTED_DIRECTORY /tmp/health-compatible
+node build-wechat-models.mjs /tmp/health-compatible/det /tmp/health-compatible/rec
 node wechat/tests/native-models.cjs
 ```
 
 构建脚本生成模型 JS 分包、字符表和带 SHA-256 的清单。`native-models.cjs` 用真实权重与原生 API 形状的适配层在电脑执行合成报告识别，验证 3 个指标、单位、置信度及模型复用；它不能代替手机的模型算子兼容性检查。当前文字区域处理适合清晰横向检验表，未实现透视纠正或大角度旋转纠正。
+
+兼容转换依赖 `onnx`、`onnxsim`、`onnxruntime`、`numpy`。检测保持等比缩放并补白到 960×960；识别固定 48×640。原件不参与模型转换。
+
+模型转换失败时会自动使用固定公开测试张量检查模型 MD5、基础卷积、零维/一维标量、Erf、HardSigmoid、空 ROI 缩放、旧式上采样、均值归约和反卷积。诊断不读取报告内容。用 `python build-wechat-probes.py` 重建探针；电脑端 9 项已通过，手机结果仍需实测。
