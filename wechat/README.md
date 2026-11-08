@@ -23,3 +23,9 @@ AppID：`wx2c46f39f8ce19434`，个人主体。用微信开发者工具导入本�
 打开工程后先确认模拟器能进入首页，点工具栏“真机调试”，选择 iOS，使用管理员或开发者微信扫码。二维码连接成功前，只能称“调试工程已准备”，不能视为真机验证通过。
 
 OCR 适配依据：https://github.com/wechat-miniprogram/miniprogram-demo/tree/master/miniprogram/packageAPI/pages/ar/photo-ocr-detect
+
+## OCR 排障与重试
+
+报告库点击图片后选择“重新识别此图片”，无需再次导入。识别显示读取、图片处理、初始化、识别四个阶段，每阶段有超时保护。每次使用独立 VisionKit 会话并持续读取 VK 帧；日志仅含阶段、耗时、帧与事件计数，不含图片、报告文字或指标值。重新识别保留人工确认/移动记录，失败保留已有数据。
+
+回归检查：`node wechat/tests/ocr.cjs` 和 `node wechat/tests/retry.cjs`。这些检查使用模拟 SDK，不代表真机识别成功。
