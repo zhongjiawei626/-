@@ -11,12 +11,16 @@ function decode(anchors,width,height){
 function create(gl,options={}){
  if(!wx.createVKSession)throw Error('当前设备不支持微信端侧 OCR');
  let disposed=false,active=null,last={stage:'idle',frames:0,events:0};
- const timeoutMs=options.timeoutMs||16000;
+ const timeoutMs=options.timeoutMs||16000,prepareTimeoutMs=options.prepareTimeoutMs||10000;
+ const stage=value=>{last={...last,stage:value};if(options.onProgress)options.onProgress(value)};
+ function waitFor(register,message){return new Promise((resolve,reject)=>{let settled=false;const done=(error,value)=>{if(settled)return;settled=true;clearTimeout(timer);if(active)active.cancelWait=null;error?reject(error):resolve(value)};const timer=setTimeout(()=>done(Error(message)),prepareTimeoutMs);if(active)active.cancelWait=()=>done(Error('识别已取消'));try{register(value=>done(null,value),error=>done(error))}catch(error){done(error)}})}
  async function pixels(path){
-  const info=await new Promise((resolve,reject)=>wx.getImageInfo({src:path,success:resolve,fail:()=>reject(Error('报告图片无法读取'))}));
+  stage('read');const info=await waitFor((resolve,reject)=>wx.getImageInfo({src:path,success:resolve,fail:()=>reject(Error('报告图片无法读取'))}),'读取报告图片超时，请重试已保存原件');
+  if(disposed)throw Error('识别已取消');stage('decode');
   const scale=Math.min(1,1600/Math.max(info.width,info.height)),width=Math.max(1,Math.round(info.width*scale)),height=Math.max(1,Math.round(info.height*scale));
   const canvas=wx.createOffscreenCanvas({type:'2d',width,height}),ctx=canvas.getContext('2d'),image=canvas.createImage();
-  await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('图片解码超时')),10000);image.onload=()=>{clearTimeout(timer);resolve()};image.onerror=()=>{clearTimeout(timer);reject(Error('图片解码失败'))};image.src=path});
+  await waitFor((resolve,reject)=>{image.onload=resolve;image.onerror=()=>reject(Error('图片解码失败'));image.src=path},'图片解码超时，请重试已保存原件');
+  if(disposed)throw Error('识别已取消');
   ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);ctx.drawImage(image,0,0,width,height);
   const frame=ctx.getImageData(0,0,width,height);return {width,height,frameBuffer:frame.data.buffer};
  }
@@ -33,10 +37,10 @@ function create(gl,options={}){
      job.finish=finish;
      try{
       const session=job.session=wx.createVKSession({track:{OCR:{mode:2}},version:'v1',gl});
-      const receive=(anchors,event)=>{if(job.done||!job.submitted)return;last.events++;const result=decode(anchors,input.width,input.height);if(!result.text&&event==='addAnchors')return;finish(null,result)};
+      const receive=(anchors,event)=>{if(job.done||!job.submitted)return;last.events++;try{const result=decode(anchors,input.width,input.height);if(!result.text&&event==='addAnchors')return;finish(null,result)}catch(error){finish(Error('识别结果解析失败，请重试已保存报告'))}};
       session.on('updateAnchors',anchors=>receive(anchors,'updateAnchors'));
       session.on('addAnchors',anchors=>receive(anchors,'addAnchors'));
-      last.stage='start';job.timer=setTimeout(()=>finish(Error('微信 OCR 初始化超时，请重试已保存报告')),10000);
+      stage('start');job.timer=setTimeout(()=>finish(Error('微信 OCR 初始化超时，请重试已保存报告')),10000);
       session.start(error=>{
        if(job.done)return;if(error){finish(Error('微信 OCR 初始化失败（'+String(error)+'）'));return}
        clearTimeout(job.timer);
@@ -44,14 +48,14 @@ function create(gl,options={}){
        const pump=()=>{if(job.done)return;try{session.getVKFrame(Math.max(1,gl&&gl.drawingBufferWidth||300),Math.max(1,gl&&gl.drawingBufferHeight||150));last.frames++}catch(error){last.frameError=true}if(!job.done)job.raf=session.requestAnimationFrame(pump)};
        job.raf=session.requestAnimationFrame(pump);
        job.timer=setTimeout(()=>finish(Error('微信 OCR 未返回结果，可在报告库重试；无需重复导入')),timeoutMs);
-       last.stage='recognize';job.submitted=true;
+       stage('recognize');job.submitted=true;
        try{session.runOCR(input)}catch(error){finish(Error('微信 OCR 调用失败，请重试已保存报告'))}
       });
      }catch(error){finish(error)}
     });
    }catch(error){if(active===job)active=null;last={...last,stage:'failed'};throw error}
   },
-  destroy(){disposed=true;if(active&&active.finish)active.finish(Error('识别已取消'));active=null}
+  destroy(){disposed=true;if(active&&active.cancelWait)active.cancelWait();if(active&&active.finish)active.finish(Error('识别已取消'));active=null}
  };
 }
 module.exports={create,decode};
