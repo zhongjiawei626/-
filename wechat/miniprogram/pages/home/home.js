@@ -1,7 +1,7 @@
 const store=require('../../utils/store');
 const domain=require('../../utils/domain');
 const chart=require('../../utils/chart');
-const ocr=require('../../utils/ocr');
+const ocr=require('../../utils/native-ocr');
 const {parseReportLines}=require('../../utils/report-parser');
 const toast=title=>wx.showToast({title:String(title).slice(0,60),icon:'none'});
 const dateString=()=>new Date().toISOString().slice(0,10);
@@ -9,7 +9,7 @@ Page({
  data:{records:[],reports:[],metrics:[],selected:'',selectedName:'选择指标',metricOpen:false,editOpen:false,form:{},reportOptions:[],reportIndex:0,moveOptions:[],moveIndex:0,range:'',latest:'—',unit:'',count:0,pendingCount:0,status:'',busy:false,textImport:null,editingReport:null,metricEdit:null,deletedMetrics:[]},
  noop(){},
  onLoad(){this.state=store.load();this.viewStart=null;this.refresh()},
- onReady(){this.measure();wx.createSelectorQuery().in(this).select('#ocrContext').node().exec(result=>{if(result[0]&&result[0].node)this.gl=result[0].node.getContext('webgl')})},
+ onReady(){this.measure()},
  onShow(){if(this.state){this.state=store.load();this.refresh()}},
  onUnload(){if(this.engine)this.engine.destroy()},
  onResize(){this.measure()},
@@ -31,7 +31,7 @@ Page({
  importMenu(){if(this.data.busy)return;wx.showActionSheet({itemList:['从相册/拍照批量导入图片','从微信聊天导入 PDF 或记录 JSON','新增检查记录'],success:r=>{if(r.tapIndex===0)this.chooseImages();if(r.tapIndex===1)this.chooseFiles();if(r.tapIndex===2)this.addRecord()}})},
  chooseImages(){wx.chooseMedia({count:9,mediaType:['image'],sourceType:['album','camera'],success:r=>this.importImages(r.tempFiles.map((f,i)=>({path:f.tempFilePath,name:'检查报告_'+dateString()+'_'+(i+1)+'.jpg'}))),fail:e=>{if(!/cancel/.test(e.errMsg||''))toast('未能选择图片')}})},
  chooseFiles(){wx.chooseMessageFile({count:9,type:'file',extension:['pdf','json','png','jpg','jpeg'],success:async r=>{for(const file of r.tempFiles){try{if(/\.json$/i.test(file.name)){const text=wx.getFileSystemManager().readFileSync(file.path,'utf8');const added=store.importRecords(JSON.parse(text));this.state=store.load();toast('已导入 '+added+' 条记录；原件需另行导入关联')}else if(/\.pdf$/i.test(file.name)){store.saveReport(file);this.state=store.load();this.setData({status:'PDF 原件已保存。本调试版暂不自动识别 PDF，可打开原件后手动记录。'})}else if(/\.(png|jpe?g)$/i.test(file.name))await this.importImages([file])}catch(err){toast(err.message||'导入失败')}}this.refresh()}})},
- async recognizeReport(report){if(!this.gl||this.gl.isContextLost&&this.gl.isContextLost())throw Error('识别图形环境未准备好，请重新进入首页后重试');if(!this.engine)this.engine=ocr.create(this.gl,{onProgress:stage=>{const labels={read:'正在读取已保存原件…',decode:'正在处理图片…',start:'正在初始化微信识别…',recognize:'正在识别报告文字…'};this.setData({status:labels[stage]||'正在识别…'})}});const result=await this.engine.recognize(report.path);this.applyReportResult(report,result)},
+ async recognizeReport(report){if(!this.engine)this.engine=ocr.create({onProgress:(stage,index,total)=>{const labels={model:'首次加载离线识别模型，后续自动复用…',read:'正在读取已保存原件…',detect:'正在定位报告文字…',recognize:'正在识别文字 '+(index||0)+'/'+(total||0)+'…'};this.setData({status:labels[stage]||'正在识别…'})}});const result=await this.engine.recognize(report.path);this.applyReportResult(report,result)},
  applyReportResult(report,result,dateOverride){if(!result.text)throw Error('未检测到可读文字，请检查图片清晰度后重试');const state=store.load(),saved=state.reports.find(r=>r.id===report.id);if(!saved)throw Error('原报告已不存在');saved.ocrText=result.text;saved.ocrStatus='complete';saved.ocrError='';const date=result.text.match(/(?:报告时间|报告日期|采样时间)[：:\s]*(20\d\d)[年./-](\d{1,2})[月./-](\d{1,2})/);if(dateOverride)saved.date=dateOverride;else if(date)saved.date=date[1]+'-'+date[2].padStart(2,'0')+'-'+date[3].padStart(2,'0');const reviewed=state.records.filter(r=>r.sourceReportId===saved.id&&(r.manualVerified||r.manualAssigned));if(result.records.length)state.records=state.records.filter(r=>r.sourceReportId!==saved.id||r.manualVerified||r.manualAssigned);for(const row of result.records){const converted=domain.canonicalize(row.metric,Number(row.value),row.unit||'');if(reviewed.some(r=>[r.metric,r.assignmentOriginalMetric,r.reviewOriginal&&r.reviewOriginal.metric].includes(converted.metric)))continue;state.records.push({...converted,id:store.id(),date:saved.date,referenceRange:row.referenceRange,referenceUnit:row.unit||'',evidence:row.evidence,needsReview:!row.validated,sourceReportId:saved.id})}store.save(state);this.state=state;this.setData({status:result.records.length?'已识别 '+result.records.length+' 条指标；待核对的数据可点开修改。':'已读出文字，但没有匹配到检验指标；可对照原件手动记录。'})},
  recordOcrError(report,error){const state=store.load(),saved=state.reports.find(r=>r.id===report.id);if(saved){saved.ocrStatus='error';saved.ocrError=error.message||'识别失败';try{store.save(state)}catch(ignore){}}this.state=store.load();this.setData({status:'原件已保存。'+(error.message||'识别失败')});if(this.engine){this.engine.destroy();this.engine=null}},
  async importImages(files){this.setData({busy:true});try{for(let i=0;i<files.length;i++){this.setData({status:'正在保存并识别第 '+(i+1)+'/'+files.length+' 份报告…'});let report;try{report=store.saveReport(files[i]);this.state=store.load();await this.recognizeReport(report)}catch(error){if(report)this.recordOcrError(report,error);else this.setData({status:'原件保存失败，请检查存储空间。'})}this.refresh()}}finally{this.setData({busy:false})}},

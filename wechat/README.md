@@ -8,7 +8,7 @@ AppID：`wx2c46f39f8ce19434`，个人主体。用微信开发者工具导入本�
 - 折线图默认显示当前指标最新日期往前六个月，手势滑动历史；固定 Y 轴、参考范围背景、点击点编辑。
 - 数据编辑、人工核对、单位换算、原件关联、单条移动。
 - 下拉列表内置顶、上下排序、重命名、可恢复删除。
-- 微信照片 OCR 使用官方 VisionKit `OCR mode:2` 和 `runOCR`。已接入代码，必须在支持的真实手机与微信版本上验证。SDK 未提供置信度时，识别数据保持待核对；模拟器不代表手机识别效果。
+- 图片 OCR 使用 PaddleOCR v6 tiny 官方 ONNX 权重，通过 `wx.createInferenceSession` 在手机推理。约 6 MB 权重以 Base64 形式分为 5 个小于 2 MB 的 JS 分包，首次加载并在手机缓存；无需报告上传、API 密钥或付费识别接口。电脑实际模型验证通过，手机模型兼容性仍需真机验证。
 - PDF 当前仅保存/打开原件和手动记录，不提供自动 PDF OCR。原生 PDF 查看器会暂时切出编辑页，返回后草稿保留。
 - 原生页面暂不提供网页端的批量指标合并；可以逐条移动。网页原版继续可用。
 
@@ -26,7 +26,7 @@ OCR 适配依据：https://github.com/wechat-miniprogram/miniprogram-demo/tree/m
 
 ## OCR 排障与重试
 
-报告库点击图片后选择“重新识别此图片”，无需再次导入。识别显示读取、图片处理、初始化、识别四个阶段，每阶段有超时保护。每次使用独立 VisionKit 会话并持续读取 VK 帧；日志仅含阶段、耗时、帧与事件计数，不含图片、报告文字或指标值。重新识别保留人工确认/移动记录，失败保留已有数据。
+报告库点击图片后选择“重新识别此图片”，无需再次导入。识别显示读取、图片处理、初始化、识别四个阶段，每阶段有超时保护。旧 VisionKit 适配器已补齐帧循环，但实测小米手机在远程调试和普通预览中均没有识别回调，因此不再作为默认引擎。当前默认加载本地 ONNX 检测及识别模型；日志不含报告文字或指标值。重新识别保留人工确认/移动记录，失败保留已有数据。
 
 回归检查：`node wechat/tests/ocr.cjs` 和 `node wechat/tests/retry.cjs`。这些检查使用模拟 SDK，不代表真机识别成功。
 
@@ -35,3 +35,19 @@ OCR 适配依据：https://github.com/wechat-miniprogram/miniprogram-demo/tree/m
 报告库选择图片或 PDF → “粘贴整份文字，自动记录”。从系统相册或微信支持的提取文字功能复制全文，粘贴后检查日期，一次保存所有匹配指标；自动进行兼容单位换算并关联当前原件。此入口不调用付费 API，也不上传报告。它需要手动复制整份文字，不等同于已解决自动图片 OCR；系统是否能提取文字取决于手机和微信版本。
 
 `node wechat/tests/text-import.cjs` 检查全文解析、日期、单位换算、来源保留。
+
+## 本地模型构建与验证
+
+权重源自 Paddle 官方模型仓库（Apache-2.0，许可证在 `miniprogram/PADDLE-LICENSE.txt`）：
+
+- https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_tiny_det_onnx_infer.tar
+- https://paddle-model-ecology.bj.bcebos.com/paddlex/official_inference_model/paddle3.0.0/PP-OCRv6_tiny_rec_onnx_infer.tar
+
+解压这两个模型后，在仓库根目录运行：
+
+```
+node build-wechat-models.mjs DET_EXTRACTED_DIRECTORY REC_EXTRACTED_DIRECTORY
+node wechat/tests/native-models.cjs
+```
+
+构建脚本生成模型 JS 分包、字符表和带 SHA-256 的清单。`native-models.cjs` 用真实权重与原生 API 形状的适配层在电脑执行合成报告识别，验证 3 个指标、单位、置信度及模型复用；它不能代替手机的模型算子兼容性检查。当前文字区域处理适合清晰横向检验表，未实现透视纠正或大角度旋转纠正。

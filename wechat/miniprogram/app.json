@@ -1,1 +1,51 @@
-{"pages":["pages/home/home"],"window":{"navigationBarTitleText":"检查看板","navigationBarBackgroundColor":"#f6f7f4","navigationBarTextStyle":"black","backgroundColor":"#f6f7f4"},"style":"v2","sitemapLocation":"sitemap.json","lazyCodeLoading":"requiredComponents"}
+{
+  "pages": [
+    "pages/home/home"
+  ],
+  "window": {
+    "navigationBarTitleText": "检查看板",
+    "navigationBarBackgroundColor": "#f6f7f4",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f6f7f4"
+  },
+  "style": "v2",
+  "sitemapLocation": "sitemap.json",
+  "lazyCodeLoading": "requiredComponents",
+  "subpackages": [
+    {
+      "name": "ocr-det-0",
+      "root": "ocr-det-0",
+      "pages": [
+        "stub"
+      ]
+    },
+    {
+      "name": "ocr-det-1",
+      "root": "ocr-det-1",
+      "pages": [
+        "stub"
+      ]
+    },
+    {
+      "name": "ocr-rec-0",
+      "root": "ocr-rec-0",
+      "pages": [
+        "stub"
+      ]
+    },
+    {
+      "name": "ocr-rec-1",
+      "root": "ocr-rec-1",
+      "pages": [
+        "stub"
+      ]
+    },
+    {
+      "name": "ocr-rec-2",
+      "root": "ocr-rec-2",
+      "pages": [
+        "stub"
+      ]
+    }
+  ]
+}
